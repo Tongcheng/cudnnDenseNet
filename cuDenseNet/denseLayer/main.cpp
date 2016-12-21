@@ -10,7 +10,7 @@ float** GPU_filterDeploy(float** filter_host,int numTransform,int initChannel,in
 
 float** GPU_miscDeploy(float* BNScaler_host,float* BNBiasVec_host,int numTransform,int initChannel,int growthRate,int N,int H,int W,int workspaceSize_gpu);
 
-void GPU_inputDeploy(float* inputData_host,float* inputData_device,int N,int initChannel,int growthRate,int H,int W);
+void GPU_inputDeploy(float* inputData_host,float* inputData_device,int N,int numTransform,int initChannel,int growthRate,int H,int W);
 
 void GPU_deployInferenceMeanVar(int numTransform,int initChannel,int growthRate,float* infMean_gpu,float* infVar_gpu,float* infMean_host,float* infVar_host);
 
@@ -82,7 +82,7 @@ struct DenseBlock{
     }
 
     void denseBlockInputDeploy(float* initData_host){
-        GPU_inputDeploy(initData_host,this->postConv_dataRegion_gpu,this->N,this->initChannel,this->growthRate,this->H,this->W);        	
+        GPU_inputDeploy(initData_host,this->postConv_dataRegion_gpu,this->N,this->numTransform,this->initChannel,this->growthRate,this->H,this->W);        	
     }
 
     void cu_denseBlockForward(){

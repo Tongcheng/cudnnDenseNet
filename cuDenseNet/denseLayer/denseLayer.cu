@@ -6,16 +6,15 @@
 
 float** GPU_getBufferState(int bufferSize,float* postConv_gpuPtr,float* postBN_gpuPtr,float* postReLU_gpuPtr){
     float** output = new float*[3];
-    int bufferSize = ##TODO;
     float* postConv_host = new float[bufferSize];
     float* postBN_host = new float[bufferSize];
     float* postReLU_host = new float[bufferSize];
     output[0] = postConv_host;
     output[1] = postBN_host;
     output[2] = postReLU_host;
-    cudaMalloc(postConv_host,postConv_gpuPtr,bufferSize * sizeof(float),cudaMemcpyDeviceToHost);
-    cudaMalloc(postBN_host,postBN_gpuPtr,bufferSize * sizeof(float),cudaMemcpyDeviceToHost);
-    cudaMalloc(postReLU_host,postReLU_gpuPtr,bufferSize * sizeof(float),cudaMemcpyDeviceToHost);
+    cudaMemcpy(postConv_host,postConv_gpuPtr,bufferSize * sizeof(float),cudaMemcpyDeviceToHost);
+    cudaMemcpy(postBN_host,postBN_gpuPtr,bufferSize * sizeof(float),cudaMemcpyDeviceToHost);
+    cudaMemcpy(postReLU_host,postReLU_gpuPtr,bufferSize * sizeof(float),cudaMemcpyDeviceToHost);
     return output;
 }
 
@@ -25,7 +24,7 @@ float** GPU_filterDeploy(float** filter_host,int numTransform,int initChannel,in
         float* output_gpu_local;
 	int outputNumChannels = growthRate;
 	int inputNumChannels = transformIdx * growthRate + initChannel;
-	int localSize_bytes = outputNumChannels * inputNumChannels * H * W * sizeof(float);
+	int localSize_bytes = outputNumChannels * inputNumChannels * filter_H * filter_W * sizeof(float);
         cudaMalloc(&output_gpu_local,localSize_bytes);
 	cudaMemcpy(output_gpu_local,filter_host[transformIdx],localSize_bytes,cudaMemcpyHostToDevice);
         output_ptrs[transformIdx] = output_gpu_local; 
@@ -44,7 +43,7 @@ float** GPU_miscDeploy(float* BNScaler_host,float* BNBias_host,int numTransform,
     //index 1 is BN_Bias_Vec
     float* output_BN_Bias;
     cudaMalloc(&output_BN_Bias,totalNumChannel*sizeof(float));
-    cudaMemcpy(output_BN_Bias,);
+    cudaMemcpy(output_BN_Bias,BNBias_host,totalNumChannel*sizeof(float),cudaMemcpyHostToDevice);
     output_ptrs[1] = output_BN_Bias;
     //index 2 is ResultRunningMean
     float* output_ResultRunningMean;
@@ -91,7 +90,7 @@ float** GPU_miscDeploy(float* BNScaler_host,float* BNBias_host,int numTransform,
     return output_ptrs;  
 }
 
-void GPU_inputDeploy(float* inputData_host,float* inputData_device,int N,int initChannel,int growthRate,int H,int W){
+void GPU_inputDeploy(float* inputData_host,float* inputData_device,int N,int numTransform,int initChannel,int growthRate,int H,int W){
     int imgGap = (initChannel+growthRate*numTransform)*H*W;
     for (int imageIdx=0;imageIdx < N;++imageIdx){
 	 int copySize_byte = (initChannel)*H*W*sizeof(float);
@@ -158,8 +157,8 @@ void DenseBlockForward(int initChannel,int growthRate,int numTransition,
         } else {
 	    cudnnSetTensor4dDescriptor(*BN_param_Descriptor,CUDNN_TENSOR_NCHW,CUDNN_DATA_FLOAT,1,growthRate,1,1);
         }
-        int channelsBefore_noself = (transformIdx==0?0:initChannel+(transformIdx-1) * growth);
-	int channelsBefore_self = initChannel + transitionIdx * growth;
+        int channelsBefore_noself = (transitionIdx==0?0:initChannel+(transformIdx-1) * growthRate);
+	int channelsBefore_self = initChannel + transitionIdx * growthRate;
         float* BN_x_ptr = postConv_dataRegion+channelsBefore_noself*H*W;
 	float* BN_y_ptr = postBN_dataRegion+channelsBefore_noself*H*W;
         float* BN_scaler_local = BNScalerVec + channelsBefore_noself;
@@ -173,14 +172,14 @@ void DenseBlockForward(int initChannel,int growthRate,int numTransition,
 	    float* resultSaveMean_local = resultSaveMean + channelsBefore_noself;
 	    float* resultSaveInvVariance_local = resultSaveInvVariance + channelsBefore_noself;
             float exponentialMovingAverageFactor = 1.0/(1+trainCycleIdx);
-	    cudnnBatchNormalizationForwardTraining(*handlePtr,CUDNN_BATCHNORM_SPATIAL,oneScalerPtr,zeroScalerPtr,*BN_x_Descriptor,BN_x_ptr,*BN_y_Descriptor,BN_y_ptr,*BN_param_Descriptor,BN_scaler_local,BN_bias_local,BN_mean_local,BN_var_local,CUDNN_BN_MIN_EPSILON,resultSaveMean_local,resultSaveInvVariance_local);
+	    cudnnBatchNormalizationForwardTraining(*handlePtr,CUDNN_BATCHNORM_SPATIAL,oneScalerPtr,zeroScalerPtr,*BN_x_Descriptor,BN_x_ptr,*BN_y_Descriptor,BN_y_ptr,*BN_param_Descriptor,BN_scaler_local,BN_bias_local,exponentialMovingAverageFactor,BN_mean_local,BN_var_local,CUDNN_BN_MIN_EPSILON,resultSaveMean_local,resultSaveInvVariance_local);
         }
 	//ReLU transform
         float* ReLU_y_ptr = postBN_dataRegion+channelsBefore_noself*H*W; 
 	cudnnActivationDescriptor_t* activationDescPtr = new cudnnActivationDescriptor_t;
 	cudnnCreateActivationDescriptor(activationDescPtr);
 	cudnnSetActivationDescriptor(*activationDescPtr,CUDNN_ACTIVATION_RELU,CUDNN_NOT_PROPAGATE_NAN,0.0);
-        cudnnActivationForward(*handlePtr,*activationDescPtr,oneScalerPtr,*BN_y_Descriptor,BN_y_ptr,zeroScalerPtr,ReLU_y_Descriptor,ReLU_y_ptr);
+        cudnnActivationForward(*handlePtr,*activationDescPtr,oneScalerPtr,*BN_y_Descriptor,BN_y_ptr,zeroScalerPtr,*ReLU_y_Descriptor,ReLU_y_ptr);
         //Convolution
 	//Convolution::tensor Descriptor
         cudnnTensorDescriptor_t* Conv_x_Descriptor = new cudnnTensorDescriptor_t;
@@ -202,7 +201,7 @@ void DenseBlockForward(int initChannel,int growthRate,int numTransition,
         cudnnCreateConvolutionDescriptor(convolutionDescriptor);
         cudnnSetConvolution2dDescriptor(*convolutionDescriptor,pad_h,pad_w,conv_verticalStride,conv_horizentalStride,1,1,CUDNN_CONVOLUTION);  
        
-        cudnnConvolutionForward(*handlePtr,oneScalerPtr,Conv_x_Descriptor,conv_x_local,filterDescriptor,filter_transform[transformIdx],convolutionDescriptor,CUDNN_CONVOLUTION_FWD_ALGO_IMPLICIT_GEMM,workspace_gpu,workspace,zeroScalerPtr,Conv_y_Descriptor,conv_y_local); 
+        cudnnConvolutionForward(*handlePtr,oneScalerPtr,*Conv_x_Descriptor,conv_x_local,*filterDescriptor,filter_transform[transformIdx],*convolutionDescriptor,CUDNN_CONVOLUTION_FWD_ALGO_IMPLICIT_GEMM,workspace_gpu,workspaceSize,zeroScalerPtr,*Conv_y_Descriptor,conv_y_local); 
     }
  
 }
@@ -223,7 +222,7 @@ void DenseBlockBackward(float* postConv_data,float* postBN_data,float* postReLU_
     float* zeroScalePtr = new float[1]; zeroScalePtr[0] = 0.0;
     
     for (int transitionIdx = numTransition-1;transitionIdx>=0;--transitionIdx){
-        int channelsBefore_self = initChannels + transitionIdx * growthRate; 
+        int channelsBefore_self = initChannel + transitionIdx * growthRate; 
         int channelsBefore_noself = (transitionIdx>0?initChannel:0)+(transitionIdx-1)*growthRate;
 	//Conv backward::Preparation
         cudnnFilterDescriptor_t* filterDesc = new cudnnFilterDescriptor_t;
@@ -252,7 +251,7 @@ void DenseBlockBackward(float* postConv_data,float* postBN_data,float* postReLU_
             *Conv_y_Descriptor,conv_dy_ptr,*convolutionDescriptor,CUDNN_CONVOLUTION_BWD_DATA_ALGO_1,workspace_gpu,workspaceSize,oneScalePtr,*Conv_x_Descriptor,postReLU_grad
         ); 	
 	//ReLU backward
-        int numChannelTransform = (transformIdx==0?initChannel:growthRate);
+        int numChannelTransform = (transitionIdx==0?initChannel:growthRate);
         cudnnActivationDescriptor_t* activationDescPtr = new cudnnActivationDescriptor_t;
 	cudnnCreateActivationDescriptor(activationDescPtr);
 	cudnnSetActivationDescriptor(*activationDescPtr,CUDNN_ACTIVATION_RELU,CUDNN_NOT_PROPAGATE_NAN,0.0);
@@ -265,7 +264,7 @@ void DenseBlockBackward(float* postConv_data,float* postBN_data,float* postReLU_
 	float* ReLU_y_ptr = postReLU_data + channelsBefore_noself*H*W;
 	float* ReLU_x_ptr = postBN_data + channelsBefore_noself*H*W; 
 	float* ReLU_dy_ptr = postReLU_grad + channelsBefore_noself*H*W;
-	float* ReLU_dx_ptr = postBn_grad + channelsBefore_noself*H*W; 
+	float* ReLU_dx_ptr = postBN_grad + channelsBefore_noself*H*W; 
 	cudnnActivationBackward(*handlePtr,*activationDescPtr,oneScalePtr,*Bijective_Tensor_Descriptor,ReLU_y_ptr,*Bijective_Tensor_Descriptor,ReLU_dy_ptr,*Bijective_Tensor_Descriptor,ReLU_x_ptr,zeroScalePtr,*Bijective_Tensor_Descriptor,ReLU_dx_ptr);	
 	//BN backward
 	float* BN_x_ptr = postConv_data + channelsBefore_noself*H*W;
@@ -275,10 +274,10 @@ void DenseBlockBackward(float* postConv_data,float* postBN_data,float* postReLU_
     	cudnnSetTensor4dDescriptor(*BN_param_Descriptor,CUDNN_TENSOR_NCHW,CUDNN_DATA_FLOAT,1,numChannelTransform,1,1);
         float* BNscaler_data_localPtr = BNscaler_data + channelsBefore_noself;
 	float* BNscaler_grad_localPtr = BNscaler_grad + channelsBefore_noself;
-	float* Bnbias_grad_localPtr = BNbias_grad + channelsBefore_noself;      
+	float* BNbias_grad_localPtr = BNbias_grad + channelsBefore_noself;      
         float* saveMean_local = resultSaveMean + channelsBefore_noself;
 	float* saveInvVar_local = resultSaveInvVariance + channelsBefore_noself; 
-        cudnnBatchNormalizationBackward(*handlePtr,CUDNN_BATCHNORM_SPATIAL,oneScalePtr,zeroScalePtr,oneScalePtr,zeroScalePtr,*BijectiveTensorDescriptor,BN_x_ptr,*BijectiveTensorDescriptor,ReLU_dx_ptr,*BijectiveTensorDescriptor,BN_dx_ptr,*BN_param_Descriptor,BNscaler_data_localPtr,BNscaler_grad_localPtr,BNbias_grad_localPtr,CUDNN_BN_MIN_EPSILON,saveMean_local,saveInvVar_local); 
+        cudnnBatchNormalizationBackward(*handlePtr,CUDNN_BATCHNORM_SPATIAL,oneScalePtr,zeroScalePtr,oneScalePtr,zeroScalePtr,*Bijective_Tensor_Descriptor,BN_x_ptr,*Bijective_Tensor_Descriptor,ReLU_dx_ptr,*Bijective_Tensor_Descriptor,BN_dx_ptr,*BN_param_Descriptor,BNscaler_data_localPtr,BNscaler_grad_localPtr,BNbias_grad_localPtr,CUDNN_BN_MIN_EPSILON,saveMean_local,saveInvVar_local); 
     }
 }
 
