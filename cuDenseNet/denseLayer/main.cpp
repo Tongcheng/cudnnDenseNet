@@ -12,6 +12,8 @@ float** GPU_miscDeploy(float* BNScaler_host,float* BNBiasVec_host,int numTransfo
 
 void GPU_inputDeploy(float* inputData_host,float* inputData_device,int N,int initChannel,int growthRate,int H,int W);
 
+void GPU_deployInferenceMeanVar(int numTransform,int initChannel,int growthRate,float* infMean_gpu,float* infVar_gpu,float* infMean_host,float* infVar_host);
+
 void DenseBlockForward(int initChannel,int growthRate,int numTransition,
 		  int N,int H,int W,int pad_h,int pad_w,int conv_verticalStride,int conv_horizentalStride,
 		  int testMode, int trainCycleIdx,
@@ -73,6 +75,10 @@ struct DenseBlock{
         this->postBN_dataRegion_gpu = misc_MetaPtr[7];
 	this->postReLU_dataRegion_gpu = misc_MetaPtr[8];
 	this->workspace_gpu = misc_MetaPtr[9];
+    }
+
+    void inferenceMeanVarDeploy(float* infMean_host,float* infVar_host){
+        GPU_deployInferenceMeanVar(this->numTransition,this->initChannel,this->growthRate,this->ResultRunningMean_gpu,this->ResultRunningVariance_gpu,infMean_host,infVar_host);
     }
 
     void denseBlockInputDeploy(float* initData_host){
@@ -158,12 +164,17 @@ int main(){
     int workspaceSize = 10000000;
     vector<float> scalerVec = {1,2,3,4,5,6,7};
     vector<float> biasVec = {3,2,1,0,-1,-2,-3};
+    vector<float> popMeanVec = {0,1,-1,0,0,0,0};
+    vector<float> popVarVec = {1,2,3,4,5,6,7};
     float* scalerPtr_host = floatVec2floatPtr(scalerVec);
     float* biasPtr_host = floatVec2floatPtr(biasVec);
+    float* popMeanPtr_host = floatVec2floatPtr(popMeanVec);
+    float* popVarPtr_host = floatVec2floatPtr(popVarVec);
     vector<string> filterNames = {"Filter1_py.txt","Filter2_py.txt"};
     float** filter_cpu = generate_filter(filterNames,2);
     float* initData_cpu = generate_data("InitTensor_py.txt");
     DenseBlock* db = new DenseBlock(3,2,2,2,5,5,1,scalerPtr_host,biasPtr_host,filter_cpu,workspaceSize);
+    db->inferenceMeanVarDeploy(popMeanPtr_host,popVarPtr_host);
     db->denseBlockInputDeploy(initData_cpu);
     db->cu_denseBlockForward();
     db->logInternalState();

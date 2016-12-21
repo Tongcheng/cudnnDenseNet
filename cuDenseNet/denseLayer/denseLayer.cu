@@ -101,6 +101,12 @@ void GPU_inputDeploy(float* inputData_host,float* inputData_device,int N,int ini
     }
 }
 
+void GPU_deployInferenceMeanVar(int numTransform,int initChannel,int growthRate,float* infMean_gpu,float* infVar_gpu,float* infMean_host,float* infVar_host){
+    int totalNumVals = initChannel + numTransform * growthRate;
+    cudaMemcpy(infMean_gpu,infMean_host,totalNumVals*sizeof(float),cudaMemcpyHostToDevice);
+    cudaMemcpy(infVar_gpu,infVar_host,totalNumVals*sizeof(float),cudaMemcpyHostToDevice);
+}
+
 /*DenseLayer: For each small transition within DenseLayer, do BN->ReLU->Convolution*/
 //Input: # of channel = k0 + k(Order - 1)
 //Output: # of channel = k
