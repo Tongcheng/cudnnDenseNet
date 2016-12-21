@@ -83,7 +83,7 @@ if __name__ == '__main__':
     #BatchNorm then ReLU
     BN1_output = pyBN_inf_Fwd(InitMat,N,InitC,H,W,popMeanVec[:InitC],popVarVec[:InitC],scalerVec[:InitC],biasVec[:InitC])
     ReLU1_output = pyReLU_batch_Fwd(BN1_output,N,InitC,H,W)
-    Conv1_output = pyConvolution_batch_Fwd(2,3,H,W,HConv,WConv,ReLU1_output,Filter1)
+    Conv1_output = pyConvolution_batch_Fwd(2,2,3,H,W,HConv,WConv,ReLU1_output,Filter1)
     
     BN2_output = pyBN_inf_Fwd(Conv1_output,N,growthRate,H,W,popMeanVec[InitC:InitC+growthRate],popVarVec[InitC:InitC+growthRate],scalerVec[InitC:InitC+growthRate],biasVec[InitC:InitC+growthRate])
     ReLU2_output = pyReLU_batch_Fwd(BN2_output,N,growthRate,H,W)
@@ -91,13 +91,14 @@ if __name__ == '__main__':
     Conv2_input = []
     for n in range(N):
         localN = []
+	#print ReLU1_output.shape
         for c in range(InitC):
-            localN.append(ReLU1_output[c])
+	    localN.append(ReLU1_output[n][c])
         for c in range(growthRate):
-            localN.append(ReLU2_output[c])
+            localN.append(ReLU2_output[n][c])
         Conv2_input.append(localN)
     
-    Conv2_output = pyConvolution_batch_Fwd(2,5,H,W,HConv,WConv,Conv2_input,Filter2)
+    Conv2_output = pyConvolution_batch_Fwd(2,2,5,H,W,HConv,WConv,Conv2_input,Filter2)
     
     writeTensor4DToFile(Filter1,2,3,HConv,WConv,"Filter1_py.txt")
     writeTensor4DToFile(Filter2,2,5,HConv,WConv,"Filter2_py.txt")
