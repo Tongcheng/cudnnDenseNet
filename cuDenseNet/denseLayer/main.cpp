@@ -59,7 +59,7 @@ struct DenseBlock{
 	filter_H(3),filter_W(3),
         testMode(testMode_in),trainCycleIdx(0)
     {
-	this->GPU_Init(BNScalerVec_in,BNBiasVec_in,filter_host_in,numTransform_in,initChannel_in,growthRate_in,N_in,H_in,W_in,this->filter_H,this->filter_W,workspaceSize);
+	this->GPU_Init(BNScalerVec_in,BNBiasVec_in,filter_host_in,numTransition_in,initChannel_in,growthRate_in,N_in,H_in,W_in,this->filter_H,this->filter_W,workspaceSize);
     }
 
     void GPU_Init(float* BNScalerVec_host,float* BNBiasVec_host,float** filter_host_in,int numTransform,int initChannel,int growthRate,int N,int H,int W,int filter_H,int filter_W,int workspaceSize){
