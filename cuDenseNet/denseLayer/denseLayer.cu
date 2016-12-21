@@ -76,6 +76,16 @@ float** GPU_miscDeploy(float* BNScaler_host,float* BNBias_host,int numTransform,
     return output_ptrs;  
 }
 
+void GPU_inputDeploy(float* inputData_host,float* inputData_device,int N,int initChannel,int growthRate,int H,int W){
+    int imgGap = (initChannel+growthRate*numTransform)*H*W;
+    for (int imageIdx=0;imageIdx < N;++imageIdx){
+	 int copySize_byte = (initChannel)*H*W*sizeof(float);
+         float* localPtr_host = inputData_host+imageIdx*imgGap;
+         float* localPtr_device = inputData_device+imageIdx*imgGap;
+	 cudaMemcpy(localPtr_device,localPtr_host,copySize_byte,cudaMemcpyHostToDevice);
+    }
+}
+
 /*DenseLayer: For each small transition within DenseLayer, do BN->ReLU->Convolution*/
 //Input: # of channel = k0 + k(Order - 1)
 //Output: # of channel = k
