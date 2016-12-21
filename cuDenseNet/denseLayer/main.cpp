@@ -19,7 +19,7 @@ void DenseBlockForward(int initChannel,int growthRate,int numTransition,
 		  int testMode, int trainCycleIdx,
 		  float* BNScalerVec, float* BNBiasVec,float* resultRunningMean, float* resultRunningVariance, float* resultSaveMean, float* resultSaveInvVariance,
 		  float* postConv_dataRegion, float* postBN_dataRegion, float* postReLU_dataRegion,
-		  float** filter_transform,int filter_H,int filter_W,float* workspace_gpu,int workspaceSize)
+		  float** filter_transform,int filter_H,int filter_W,float* workspace_gpu,int workspaceSize);
 
 float** GPU_getBufferState(int bufferSize,float* postConv_gpuPtr,float* postBN_gpuPtr,float* postReLU_gpuPtr);
 
@@ -57,9 +57,9 @@ struct DenseBlock{
     	numTransition(numTransition_in),N(N_in),H(H_in),W(W_in),
         pad_h(1),pad_w(1),conv_verticalStride(1),conv_horizentalStride(1),
 	filter_H(3),filter_W(3),
-        testMode(testMode_in),trainCycleIdx(0),
+        testMode(testMode_in),trainCycleIdx(0)
     {
-	GPU_Init(BNScalerVec_in,BNBiasVec_in,filter_host_in,numTransform,initChannel,growthRate,N,H,W,filter_H,filter_W,workspaceSize);
+	this->GPU_Init(BNScalerVec_in,BNBiasVec_in,filter_host_in,numTransform_in,initChannel_in,growthRate_in,N_in,H_in,W_in,this->filter_H,this->filter_W,workspaceSize);
     }
 
     void GPU_Init(float* BNScalerVec_host,float* BNBiasVec_host,float** filter_host_in,int numTransform,int initChannel,int growthRate,int N,int H,int W,int filter_H,int filter_W,int workspaceSize){
@@ -82,7 +82,7 @@ struct DenseBlock{
     }
 
     void denseBlockInputDeploy(float* initData_host){
-        GPU_inputDeploy(initData_host,this->postConv_dataRegion_gpu,this->N,this->numTransform,this->initChannel,this->growthRate,this->H,this->W);        	
+        GPU_inputDeploy(initData_host,this->postConv_dataRegion_gpu,this->N,this->numTransition,this->initChannel,this->growthRate,this->H,this->W);        	
     }
 
     void cu_denseBlockForward(){
@@ -105,7 +105,7 @@ struct DenseBlock{
 	float* bufferState_postConv_host = bufferStates_host[0];
 	float* bufferState_postBN_host = bufferStates_host[1];
 	float* bufferState_postReLU_host = bufferStates_host[2];
-        out<< "postConv"<<endl;
+        cout<< "postConv"<<endl;
         printTensor(bufferState_postConv_host,bufferSize);		
 	cout<< "postBN"<<endl;
 	printTensor(bufferState_postBN_host,bufferSize);
@@ -148,14 +148,15 @@ float** generate_filter(vector<string> vecNames,int numTransform){
         string localFileName = vecNames[transformIdx];
 	ifstream localReader(localFileName);
 	vector<string> localContent = getNextLineAndSplitIntoTokens(localReader);
-	float* localOutput = string2float(localContent);
+	float* localOutput = stringVec2floatPtr(localContent);
 	output[transformIdx] = localOutput;
     }
     return output;
 }
 
 float* generate_data(string initDataFileName){
-    vector<string> vecStr = getNextLineAndSplitIntoTokens(initDataFileName);
+    ifstream inputFileReader(initDataFileName);
+    vector<string> vecStr = getNextLineAndSplitIntoTokens(inputFileReader);
     float* output = stringVec2floatPtr(vecStr);  
     return output;
 }
