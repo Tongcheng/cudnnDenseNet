@@ -4,6 +4,21 @@
 #include <cublas_v2.h>
 #include <cuda_runtime.h>
 
+float** GPU_getBufferState(int bufferSize,float* postConv_gpuPtr,float* postBN_gpuPtr,float* postReLU_gpuPtr){
+    float** output = new float*[3];
+    int bufferSize = ##TODO;
+    float* postConv_host = new float[bufferSize];
+    float* postBN_host = new float[bufferSize];
+    float* postReLU_host = new float[bufferSize];
+    output[0] = postConv_host;
+    output[1] = postBN_host;
+    output[2] = postReLU_host;
+    cudaMalloc(postConv_host,postConv_gpuPtr,bufferSize * sizeof(float),cudaMemcpyDeviceToHost);
+    cudaMalloc(postBN_host,postBN_gpuPtr,bufferSize * sizeof(float),cudaMemcpyDeviceToHost);
+    cudaMalloc(postReLU_host,postReLU_gpuPtr,bufferSize * sizeof(float),cudaMemcpyDeviceToHost);
+    return output;
+}
+
 float** GPU_filterDeploy(float** filter_host,int numTransform,int initChannel,int growthRate,int N,int filter_H,int filter_W){
     float** output_ptrs = new float*[numTransform];
     for (int transformIdx=0;transformIdx < numTransform;++transformIdx){

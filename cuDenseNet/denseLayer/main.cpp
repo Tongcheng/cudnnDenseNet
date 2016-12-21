@@ -19,6 +19,14 @@ void DenseBlockForward(int initChannel,int growthRate,int numTransition,
 		  float* postConv_dataRegion, float* postBN_dataRegion, float* postReLU_dataRegion,
 		  float** filter_transform,int filter_H,int filter_W,float* workspace_gpu,int workspaceSize)
 
+float** GPU_getBufferState(int bufferSize,float* postConv_gpuPtr,float* postBN_gpuPtr,float* postReLU_gpuPtr);
+
+void printTensor(float* tensor,int tensorLen){
+    for (int i=0;i<tensorLen;++i) cout<< tensor[i]<<",";
+    cout<<endl;
+}
+
+
 struct DenseBlock{
     int initChannel,growthRate,numTransition;
     int N,H,W;
@@ -84,8 +92,19 @@ struct DenseBlock{
 	if (this->testMode==0) this->trainCycleIdx++;
     }
 
+    
     void logInternalState(){
-          
+        int bufferSize = this->N * (this->initChannel + this->growthRate * this->numTransition) * this->H * this->W; //the number of values within buffer
+	float** bufferStates_host = GPU_getBufferState(bufferSize,this->postConv_dataRegion_gpu,this->postBN_dataRegion_gpu,this->postReLU_dataRegion_gpu);
+	float* bufferState_postConv_host = bufferStates_host[0];
+	float* bufferState_postBN_host = bufferStates_host[1];
+	float* bufferState_postReLU_host = bufferStates_host[2];
+        out<< "postConv"<<endl;
+        printTensor(bufferState_postConv_host,bufferSize);		
+	cout<< "postBN"<<endl;
+	printTensor(bufferState_postBN_host,bufferSize);
+	cout<< "postReLU"<<endl;
+	printTensor(bufferState_postReLU_host,bufferSize);
     }
 };
 
@@ -147,4 +166,5 @@ int main(){
     DenseBlock* db = new DenseBlock(3,2,2,2,5,5,1,scalerPtr_host,biasPtr_host,filter_cpu,workspaceSize);
     db->denseBlockInputDeploy(initData_cpu);
     db->cu_denseBlockForward();
+    db->logInternalState();
 }
