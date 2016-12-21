@@ -157,7 +157,7 @@ void DenseBlockForward(int initChannel,int growthRate,int numTransition,
         } else {
 	    cudnnSetTensor4dDescriptor(*BN_param_Descriptor,CUDNN_TENSOR_NCHW,CUDNN_DATA_FLOAT,1,growthRate,1,1);
         }
-        int channelsBefore_noself = (transitionIdx==0?0:initChannel+(transformIdx-1) * growthRate);
+        int channelsBefore_noself = (transitionIdx==0?0:initChannel+(transitionIdx-1) * growthRate);
 	int channelsBefore_self = initChannel + transitionIdx * growthRate;
         float* BN_x_ptr = postConv_dataRegion+channelsBefore_noself*H*W;
 	float* BN_y_ptr = postBN_dataRegion+channelsBefore_noself*H*W;
@@ -201,7 +201,7 @@ void DenseBlockForward(int initChannel,int growthRate,int numTransition,
         cudnnCreateConvolutionDescriptor(convolutionDescriptor);
         cudnnSetConvolution2dDescriptor(*convolutionDescriptor,pad_h,pad_w,conv_verticalStride,conv_horizentalStride,1,1,CUDNN_CONVOLUTION);  
        
-        cudnnConvolutionForward(*handlePtr,oneScalerPtr,*Conv_x_Descriptor,conv_x_local,*filterDescriptor,filter_transform[transformIdx],*convolutionDescriptor,CUDNN_CONVOLUTION_FWD_ALGO_IMPLICIT_GEMM,workspace_gpu,workspaceSize,zeroScalerPtr,*Conv_y_Descriptor,conv_y_local); 
+        cudnnConvolutionForward(*handlePtr,oneScalerPtr,*Conv_x_Descriptor,conv_x_local,*filterDescriptor,filter_transform[transitionIdx],*convolutionDescriptor,CUDNN_CONVOLUTION_FWD_ALGO_IMPLICIT_GEMM,workspace_gpu,workspaceSize,zeroScalerPtr,*Conv_y_Descriptor,conv_y_local); 
     }
  
 }
