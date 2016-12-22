@@ -28,6 +28,11 @@ void printTensor(float* tensor,int tensorLen){
     cout<<endl;
 }
 
+void writeTensor(float* tensor,int tensorLen,string fileName){
+    std::ofstream outWriter(fileName);
+    for (int i=0;i<tensorLen;++i) outWriter<<tensor[i]<<",";
+    outWriter<<endl;
+}
 
 struct DenseBlock{
     int initChannel,growthRate,numTransition;
@@ -106,11 +111,11 @@ struct DenseBlock{
 	float* bufferState_postBN_host = bufferStates_host[1];
 	float* bufferState_postReLU_host = bufferStates_host[2];
         cout<< "postConv"<<endl;
-        printTensor(bufferState_postConv_host,bufferSize);		
+        writeTensor(bufferState_postConv_host,bufferSize,"postConv_cpp");		
 	cout<< "postBN"<<endl;
-	printTensor(bufferState_postBN_host,bufferSize);
+	writeTensor(bufferState_postBN_host,bufferSize,"postBN_cpp");
 	cout<< "postReLU"<<endl;
-	printTensor(bufferState_postReLU_host,bufferSize);
+	writeTensor(bufferState_postReLU_host,bufferSize,"postReLU_cpp");
     }
 };
 
