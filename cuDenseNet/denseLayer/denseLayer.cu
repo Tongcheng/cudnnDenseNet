@@ -106,6 +106,15 @@ void GPU_deployInferenceMeanVar(int numTransform,int initChannel,int growthRate,
     cudaMemcpy(infVar_gpu,infVar_host,totalNumVals*sizeof(float),cudaMemcpyHostToDevice);
 }
 
+void printGPUBuffer(float* gpuPtr,int numVals){
+    float* cpuPtr = new float[numVals];
+    cudaMalloc(cpuPtr,gpuPtr,numVals*sizeof(float),cudaMemcpyDeviceToHost);
+    for (int i=0;i<numVals;++i){
+        printf("%f,",cpuPtr[i]);
+    }
+    printf("\n");
+}
+
 /*DenseLayer: For each small transition within DenseLayer, do BN->ReLU->Convolution*/
 //Input: # of channel = k0 + k(Order - 1)
 //Output: # of channel = k
@@ -157,7 +166,7 @@ void DenseBlockForward(int initChannel,int growthRate,int numTransition,
         } else {
 	    cudnnSetTensor4dDescriptor(*BN_param_Descriptor,CUDNN_TENSOR_NCHW,CUDNN_DATA_FLOAT,1,growthRate,1,1);
         }
-        int channelsBefore_noself = (transitionIdx==0?0:initChannel+(transitionIdx-1) * growthRate);
+        int channelsBefore_noself = (transitionIdx==0?0:(initChannel+(transitionIdx-1) * growthRate));
 	int channelsBefore_self = initChannel + transitionIdx * growthRate;
         float* BN_x_ptr = postConv_dataRegion+channelsBefore_noself*H*W;
 	float* BN_y_ptr = postBN_dataRegion+channelsBefore_noself*H*W;
@@ -174,6 +183,7 @@ void DenseBlockForward(int initChannel,int growthRate,int numTransition,
             float exponentialMovingAverageFactor = 1.0/(1+trainCycleIdx);
 	    cudnnBatchNormalizationForwardTraining(*handlePtr,CUDNN_BATCHNORM_SPATIAL,oneScalerPtr,zeroScalerPtr,*BN_x_Descriptor,BN_x_ptr,*BN_y_Descriptor,BN_y_ptr,*BN_param_Descriptor,BN_scaler_local,BN_bias_local,exponentialMovingAverageFactor,BN_mean_local,BN_var_local,CUDNN_BN_MIN_EPSILON,resultSaveMean_local,resultSaveInvVariance_local);
         }
+	if (transitionIdx==0) printGPUBuffer(postBN_dataRegion,N*(numTransition*growthRate+initChannel)*H*W);
 	//ReLU transform
         float* ReLU_y_ptr = postReLU_dataRegion+channelsBefore_noself*H*W; 
 	cudnnActivationDescriptor_t* activationDescPtr = new cudnnActivationDescriptor_t;
