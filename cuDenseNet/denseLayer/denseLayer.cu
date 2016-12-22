@@ -4,7 +4,39 @@
 #include <cublas_v2.h>
 #include <cuda_runtime.h>
 
-float** GPU_getBufferState(int bufferSize,float* postConv_gpuPtr,float* postBN_gpuPtr,float* postReLU_gpuPtr){
+
+//////////////////////////////////////////////////////////////////////////////
+// Error handling
+// Adapted from the CUDNN classification code
+// sample: https://developer.nvidia.com/cuDNN
+
+#define FatalError(s) do {                                             \
+	    std::stringstream _where, _message;                                \
+	    _where << __FILE__ << ':' << __LINE__;                             \
+	    _message << std::string(s) + "\n" << __FILE__ << ':' << __LINE__;  \
+	    std::cerr << _message.str() << "\nAborting...\n";                  \
+	    cudaDeviceReset();                                                 \
+	    exit(1);                                                           \
+} while(0)
+
+#define checkCUDNN(status) do {                                        \
+	    std::stringstream _error;                                          \
+	    if (status != CUDNN_STATUS_SUCCESS) {                              \
+		          _error << "CUDNN failure: " << cudnnGetErrorString(status);      \
+		          FatalError(_error.str());                                        \
+		        }                                                                  \
+} while(0)
+
+#define checkCudaErrors(status) do {                                   \
+	    std::stringstream _error;                                          \
+	    if (status != 0) {                                                 \
+		          _error << "Cuda failure: " << status;                            \
+		          FatalError(_error.str());                                        \
+		        }                                                                  \
+} while(0)
+
+
+** GPU_getBufferState(int bufferSize,floatr postConv_gpuPtr,float* postBN_gpuPtr,float* postReLU_gpuPtr){
     float** output = new float*[3];
     float* postConv_host = new float[bufferSize];
     float* postBN_host = new float[bufferSize];
@@ -184,7 +216,7 @@ void DenseBlockForward(int initChannel,int growthRate,int numTransition,
             float exponentialMovingAverageFactor = 1.0/(1+trainCycleIdx);
 	    cudnnBatchNormalizationForwardTraining(*handlePtr,CUDNN_BATCHNORM_SPATIAL,oneScalerPtr,zeroScalerPtr,*BN_x_Descriptor,BN_x_ptr,*BN_y_Descriptor,BN_y_ptr,*BN_param_Descriptor,BN_scaler_local,BN_bias_local,exponentialMovingAverageFactor,BN_mean_local,BN_var_local,CUDNN_BN_MIN_EPSILON,resultSaveMean_local,resultSaveInvVariance_local);
         }
-	if (transitionIdx==0) printGPUBuffer(postConv_dataRegion,N*(numTransition*growthRate+initChannel)*H*W);
+	
 	//ReLU transform
         float* ReLU_y_ptr = postReLU_dataRegion+channelsBefore_noself*H*W; 
 	cudnnActivationDescriptor_t* activationDescPtr = new cudnnActivationDescriptor_t;
@@ -212,7 +244,12 @@ void DenseBlockForward(int initChannel,int growthRate,int numTransition,
         cudnnCreateConvolutionDescriptor(convolutionDescriptor);
         cudnnSetConvolution2dDescriptor(*convolutionDescriptor,pad_h,pad_w,conv_verticalStride,conv_horizentalStride,1,1,CUDNN_CONVOLUTION);  
        
-        cudnnConvolutionForward(*handlePtr,oneScalerPtr,*Conv_x_Descriptor,conv_x_local,*filterDescriptor,filter_transform[transitionIdx],*convolutionDescriptor,CUDNN_CONVOLUTION_FWD_ALGO_IMPLICIT_GEMM,workspace_gpu,workspaceSize,zeroScalerPtr,*Conv_y_Descriptor,conv_y_local); 
+        checkCUDNN( cudnnConvolutionForward(*handlePtr,oneScalerPtr,*Conv_x_Descriptor,conv_x_local,*filterDescriptor,filter_transform[transitionIdx],*convolutionDescriptor,CUDNN_CONVOLUTION_FWD_ALGO_IMPLICIT_GEMM,workspace_gpu,workspaceSize,zeroScalerPtr,*Conv_y_Descriptor,conv_y_local) );
+            
+	printf("transitionIdx %d\n",transitionIdx);
+	printGPUBuffer(filter_transform[transitionIdx],growthRate*channelsBefore_self*3*3);
+	
+
     }
  
 }
