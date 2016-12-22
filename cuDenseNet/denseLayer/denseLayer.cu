@@ -91,11 +91,12 @@ float** GPU_miscDeploy(float* BNScaler_host,float* BNBias_host,int numTransform,
 }
 
 void GPU_inputDeploy(float* inputData_host,float* inputData_device,int N,int numTransform,int initChannel,int growthRate,int H,int W){
-    int imgGap = (initChannel+growthRate*numTransform)*H*W;
+    int imgGap_device = (initChannel+growthRate*numTransform)*H*W;
+    int imgGap_host = initChannel*H*W;
     for (int imageIdx=0;imageIdx < N;++imageIdx){
 	 int copySize_byte = (initChannel)*H*W*sizeof(float);
-         float* localPtr_host = inputData_host+imageIdx*imgGap;
-         float* localPtr_device = inputData_device+imageIdx*imgGap;
+         float* localPtr_host = inputData_host+imageIdx*imgGap_host;
+         float* localPtr_device = inputData_device+imageIdx*imgGap_device;
 	 cudaMemcpy(localPtr_device,localPtr_host,copySize_byte,cudaMemcpyHostToDevice);
     }
 }
@@ -108,7 +109,7 @@ void GPU_deployInferenceMeanVar(int numTransform,int initChannel,int growthRate,
 
 void printGPUBuffer(float* gpuPtr,int numVals){
     float* cpuPtr = new float[numVals];
-    cudaMalloc(cpuPtr,gpuPtr,numVals*sizeof(float),cudaMemcpyDeviceToHost);
+    cudaMemcpy(cpuPtr,gpuPtr,numVals*sizeof(float),cudaMemcpyDeviceToHost);
     for (int i=0;i<numVals;++i){
         printf("%f,",cpuPtr[i]);
     }
@@ -183,7 +184,7 @@ void DenseBlockForward(int initChannel,int growthRate,int numTransition,
             float exponentialMovingAverageFactor = 1.0/(1+trainCycleIdx);
 	    cudnnBatchNormalizationForwardTraining(*handlePtr,CUDNN_BATCHNORM_SPATIAL,oneScalerPtr,zeroScalerPtr,*BN_x_Descriptor,BN_x_ptr,*BN_y_Descriptor,BN_y_ptr,*BN_param_Descriptor,BN_scaler_local,BN_bias_local,exponentialMovingAverageFactor,BN_mean_local,BN_var_local,CUDNN_BN_MIN_EPSILON,resultSaveMean_local,resultSaveInvVariance_local);
         }
-	if (transitionIdx==0) printGPUBuffer(postBN_dataRegion,N*(numTransition*growthRate+initChannel)*H*W);
+	if (transitionIdx==0) printGPUBuffer(postConv_dataRegion,N*(numTransition*growthRate+initChannel)*H*W);
 	//ReLU transform
         float* ReLU_y_ptr = postReLU_dataRegion+channelsBefore_noself*H*W; 
 	cudnnActivationDescriptor_t* activationDescPtr = new cudnnActivationDescriptor_t;
