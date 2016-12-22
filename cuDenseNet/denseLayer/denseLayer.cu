@@ -175,7 +175,7 @@ void DenseBlockForward(int initChannel,int growthRate,int numTransition,
 	    cudnnBatchNormalizationForwardTraining(*handlePtr,CUDNN_BATCHNORM_SPATIAL,oneScalerPtr,zeroScalerPtr,*BN_x_Descriptor,BN_x_ptr,*BN_y_Descriptor,BN_y_ptr,*BN_param_Descriptor,BN_scaler_local,BN_bias_local,exponentialMovingAverageFactor,BN_mean_local,BN_var_local,CUDNN_BN_MIN_EPSILON,resultSaveMean_local,resultSaveInvVariance_local);
         }
 	//ReLU transform
-        float* ReLU_y_ptr = postBN_dataRegion+channelsBefore_noself*H*W; 
+        float* ReLU_y_ptr = postReLU_dataRegion+channelsBefore_noself*H*W; 
 	cudnnActivationDescriptor_t* activationDescPtr = new cudnnActivationDescriptor_t;
 	cudnnCreateActivationDescriptor(activationDescPtr);
 	cudnnSetActivationDescriptor(*activationDescPtr,CUDNN_ACTIVATION_RELU,CUDNN_NOT_PROPAGATE_NAN,0.0);
