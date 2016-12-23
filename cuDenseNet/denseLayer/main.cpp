@@ -104,18 +104,15 @@ struct DenseBlock{
     }
 
     
-    void logInternalState(){
+    void logInternalState(string rootDir){
         int bufferSize = this->N * (this->initChannel + this->growthRate * this->numTransition) * this->H * this->W; //the number of values within buffer
 	float** bufferStates_host = GPU_getBufferState(bufferSize,this->postConv_dataRegion_gpu,this->postBN_dataRegion_gpu,this->postReLU_dataRegion_gpu);
 	float* bufferState_postConv_host = bufferStates_host[0];
 	float* bufferState_postBN_host = bufferStates_host[1];
 	float* bufferState_postReLU_host = bufferStates_host[2];
-        cout<< "postConv"<<endl;
-        writeTensor(bufferState_postConv_host,bufferSize,"postConv_cpp");		
-	cout<< "postBN"<<endl;
-	writeTensor(bufferState_postBN_host,bufferSize,"postBN_cpp");
-	cout<< "postReLU"<<endl;
-	writeTensor(bufferState_postReLU_host,bufferSize,"postReLU_cpp");
+        writeTensor(bufferState_postConv_host,bufferSize,rootDir+"/postConv_cpp");		
+	writeTensor(bufferState_postBN_host,bufferSize,rootDir+"/postBN_cpp");
+	writeTensor(bufferState_postReLU_host,bufferSize,rootDir+"/postReLU_cpp");
     }
 };
 
@@ -166,8 +163,10 @@ float* generate_data(string initDataFileName){
     return output;
 }
 
-int main(){
+//case_1 : forward inference test
+void testCase1(){
     int workspaceSize = 10000000;
+    string rootDir = "test_case_1";
     vector<float> scalerVec = {1,2,3,4,5,6,7};
     vector<float> biasVec = {3,2,1,0,-1,-2,-3};
     vector<float> popMeanVec = {0,1,-1,0,0,0,0};
@@ -176,12 +175,17 @@ int main(){
     float* biasPtr_host = floatVec2floatPtr(biasVec);
     float* popMeanPtr_host = floatVec2floatPtr(popMeanVec);
     float* popVarPtr_host = floatVec2floatPtr(popVarVec);
-    vector<string> filterNames = {"Filter1_py.txt","Filter2_py.txt"};
+    vector<string> filterNames = {rootDir+"Filter1_py.txt",rootDir+"Filter2_py.txt"};
     float** filter_cpu = generate_filter(filterNames,2);
     float* initData_cpu = generate_data("InitTensor_py.txt");
     DenseBlock* db = new DenseBlock(3,2,2,2,5,5,1,scalerPtr_host,biasPtr_host,filter_cpu,workspaceSize);
     db->inferenceMeanVarDeploy(popMeanPtr_host,popVarPtr_host);
     db->denseBlockInputDeploy(initData_cpu);
     db->cu_denseBlockForward();
-    db->logInternalState();
+    db->logInternalState(rootDir);
+}
+
+int main(){
+    testCase1();    
+
 }
