@@ -10,8 +10,9 @@ listB =  open(fileNameB,'r').readlines()[0].split(',')[:-1]
 floatAL = map(lambda x:float(x),listA)
 floatBL = map(lambda x:float(x),listB)
 
-print floatAL[50:]
-print floatBL[250:300]
+print floatAL[A_offset:A_offset+rangeLen]
+print floatBL[B_offset:B_offset+rangeLen]
+
 globalMaxDiff = 0 
 for i in range(rangeLen):
     aIdx,bIdx = A_offset+i,B_offset+i 

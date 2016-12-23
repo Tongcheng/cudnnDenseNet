@@ -233,7 +233,7 @@ void DenseBlockForward(int initChannel,int growthRate,int numTransition,
         cudnnSetTensor4dDescriptorEx(*Conv_y_Descriptor,CUDNN_DATA_FLOAT,N,growthRate,H,W,(numTransition*growthRate+initChannel)*H*W,H*W,W,1);
 	//Convolution::tensor Ptr
         int delayChannels = initChannel+growthRate*transitionIdx;
-	float* conv_x_local = postConv_dataRegion; 
+	float* conv_x_local = postReLU_dataRegion; 
 	float* conv_y_local = postConv_dataRegion + delayChannels*H*W;
         //Convolution::filter Descriptor
 	cudnnFilterDescriptor_t* filterDescriptor = new cudnnFilterDescriptor_t;
