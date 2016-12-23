@@ -175,9 +175,9 @@ void testCase1(){
     float* biasPtr_host = floatVec2floatPtr(biasVec);
     float* popMeanPtr_host = floatVec2floatPtr(popMeanVec);
     float* popVarPtr_host = floatVec2floatPtr(popVarVec);
-    vector<string> filterNames = {rootDir+"Filter1_py.txt",rootDir+"Filter2_py.txt"};
+    vector<string> filterNames = {rootDir+"/Filter1_py.txt",rootDir+"/Filter2_py.txt"};
     float** filter_cpu = generate_filter(filterNames,2);
-    float* initData_cpu = generate_data("InitTensor_py.txt");
+    float* initData_cpu = generate_data(rootDir+"/InitTensor_py.txt");
     DenseBlock* db = new DenseBlock(3,2,2,2,5,5,1,scalerPtr_host,biasPtr_host,filter_cpu,workspaceSize);
     db->inferenceMeanVarDeploy(popMeanPtr_host,popVarPtr_host);
     db->denseBlockInputDeploy(initData_cpu);
