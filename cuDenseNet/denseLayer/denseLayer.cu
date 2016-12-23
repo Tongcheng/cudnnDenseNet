@@ -1,9 +1,10 @@
 #include "cudnn.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <iostream>
+#include <sstream>
 #include <cublas_v2.h>
 #include <cuda_runtime.h>
-
 
 //////////////////////////////////////////////////////////////////////////////
 // Error handling
@@ -36,7 +37,7 @@
 } while(0)
 
 
-** GPU_getBufferState(int bufferSize,floatr postConv_gpuPtr,float* postBN_gpuPtr,float* postReLU_gpuPtr){
+float** GPU_getBufferState(int bufferSize,float* postConv_gpuPtr,float* postBN_gpuPtr,float* postReLU_gpuPtr){
     float** output = new float*[3];
     float* postConv_host = new float[bufferSize];
     float* postBN_host = new float[bufferSize];
