@@ -1,9 +1,9 @@
 
-fileNameA = "InitTensor_py.txt"
+fileNameA = "Conv2_py.txt"
 fileNameB = "postConv_cpp"
 A_offset = 0
-B_offset = 0
-rangeLen = 75
+B_offset = 125
+rangeLen = 50
 
 listA =  open(fileNameA,'r').readlines()[0].split(",")[:-1]
 listB =  open(fileNameB,'r').readlines()[0].split(',')[:-1]
