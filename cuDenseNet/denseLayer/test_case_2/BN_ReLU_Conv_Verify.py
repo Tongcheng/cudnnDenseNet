@@ -68,7 +68,7 @@ def pyBN_train_Fwd(inputData,n,c,h_img,w_img,inMeanVec,inVarVec,scalerVec,biasVe
     for imgIdx in range(n):
         for channelIdx in range(c):
             inputLocalFeatureMap = inputData[imgIdx][channelIdx]
-	    tmp = (inputLocalFeatureMap - popMeanVec[channelIdx]) / np.sqrt(popVarVec[channelIdx] + epsilon)
+	    tmp = (inputLocalFeatureMap - output_Mean[channelIdx]) / np.sqrt(output_Var[channelIdx] + epsilon)
 	     
             outputLocalFeatureMap = scalerVec[channelIdx]*tmp + biasVec[channelIdx]
             output[imgIdx][channelIdx] = outputLocalFeatureMap
