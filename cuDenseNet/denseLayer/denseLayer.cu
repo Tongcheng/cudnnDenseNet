@@ -36,6 +36,11 @@
 		        }                                                                  \
 } while(0)
 
+float* GPU_transferPtr(int bufferSize,float* gpuPtr){
+    float* output_cpu = new float[bufferSize];
+    cudaMemcpy(output_cpu,gpuPtr,bufferSize*sizeof(float),cudaMemcpyDeviceToHost);
+    return output_cpu;
+}
 
 float** GPU_getBufferState(int bufferSize,float* postConv_gpuPtr,float* postBN_gpuPtr,float* postReLU_gpuPtr){
     float** output = new float*[3];
@@ -247,8 +252,8 @@ void DenseBlockForward(int initChannel,int growthRate,int numTransition,
        
         checkCUDNN( cudnnConvolutionForward(*handlePtr,oneScalerPtr,*Conv_x_Descriptor,conv_x_local,*filterDescriptor,filter_transform[transitionIdx],*convolutionDescriptor,CUDNN_CONVOLUTION_FWD_ALGO_IMPLICIT_GEMM,workspace_gpu,workspaceSize,zeroScalerPtr,*Conv_y_Descriptor,conv_y_local) );
             
-	printf("transitionIdx %d\n",transitionIdx);
-	printGPUBuffer(filter_transform[transitionIdx],growthRate*channelsBefore_self*3*3);
+	//printf("transitionIdx %d\n",transitionIdx);
+	//printGPUBuffer(filter_transform[transitionIdx],growthRate*channelsBefore_self*3*3);
 	
 
     }

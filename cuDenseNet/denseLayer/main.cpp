@@ -21,6 +21,8 @@ void DenseBlockForward(int initChannel,int growthRate,int numTransition,
 		  float* postConv_dataRegion, float* postBN_dataRegion, float* postReLU_dataRegion,
 		  float** filter_transform,int filter_H,int filter_W,float* workspace_gpu,int workspaceSize);
 
+float* GPU_transferPtr(int bufferSize,float* gpuPtr);
+
 float** GPU_getBufferState(int bufferSize,float* postConv_gpuPtr,float* postBN_gpuPtr,float* postReLU_gpuPtr);
 
 void printTensor(float* tensor,int tensorLen){
@@ -56,13 +58,13 @@ struct DenseBlock{
     DenseBlock(int initChannel_in,int growthRate_in,int numTransition_in,
         int N_in,int H_in,int W_in,int testMode_in,
         float* BNScalerVec_in,float* BNBiasVec_in,float** filter_host_in,
-        int workspaceSize
+        int workspaceSize,int trainCycleIdx_in = 0
         ):
         initChannel(initChannel_in),growthRate(growthRate_in),
     	numTransition(numTransition_in),N(N_in),H(H_in),W(W_in),
         pad_h(1),pad_w(1),conv_verticalStride(1),conv_horizentalStride(1),
 	filter_H(3),filter_W(3),
-        testMode(testMode_in),trainCycleIdx(0)
+        testMode(testMode_in),trainCycleIdx(trainCycleIdx_in)
     {
 	this->GPU_Init(BNScalerVec_in,BNBiasVec_in,filter_host_in,numTransition_in,initChannel_in,growthRate_in,N_in,H_in,W_in,this->filter_H,this->filter_W,workspaceSize);
     }
@@ -113,6 +115,14 @@ struct DenseBlock{
         writeTensor(bufferState_postConv_host,bufferSize,rootDir+"/postConv_cpp");		
 	writeTensor(bufferState_postBN_host,bufferSize,rootDir+"/postBN_cpp");
 	writeTensor(bufferState_postReLU_host,bufferSize,rootDir+"/postReLU_cpp");
+    }
+
+    void logResultMeanVar(string rootDir){
+        int bufferSize = this->initChannel + this->growthRate * this->numTransition;
+	float* resultMean_cpu = GPU_transferPtr(bufferSize,this->ResultRunningMean_gpu);
+	float* resultVar_cpu = GPU_transferPtr(bufferSize,this->ResultRunningVar_gpu);
+	writeTensor(resultMean_cpu,bufferSize,rootDir+"/Mean_cpp");
+	writeTensor(resultVar_cpu,bufferSize,rootDir+"Var_cpp");
     }
 };
 
@@ -185,7 +195,37 @@ void testCase1(){
     db->logInternalState(rootDir);
 }
 
+//case_2: forward inference training : 
+//trainCycle_0
+void testCase2(){
+    int workspaceSize = 10000000;
+    string rootDir = "test_case_2";
+    vector<float> scalerVec = {1,2,3,4,5,6,7};
+    vector<float> biasVec = {3,2,1,0,-1,-2,-3};
+    vector<float> popMeanVec = {0,1,-1,0,0,0,0};
+    vector<float> popVarVec = {1,2,3,4,5,6,7};
+    float* scalerPtr_host = floatVec2floatPtr(scalerVec);
+    float* biasPtr_host = floatVec2floatPtr(biasVec);
+    float* popMeanPtr_host = floatVec2floatPtr(popMeanVec);
+    float* popVarPtr_host = floatVec2floatPtr(popVarVec);
+    vector<string> filterNames = {rootDir+"/Filter1_py.txt",rootDir+"/Filter2_py.txt"};
+    float** filter_cpu = generate_filter(filterNames,2);
+    float* initData_cpu = generate_data(rootDir+"/InitTensor_py.txt");
+    DenseBlock* db = new DenseBlock(3,2,2,2,5,5,1,scalerPtr_host,biasPtr_host,filter_cpu,workspaceSize);
+    db->inferenceMeanVarDeploy(popMeanPtr_host,popVarPtr_host);
+    db->denseBlockInputDeploy(initData_cpu);
+    db->cu_denseBlockForward();
+    db->logInternalState(rootDir);
+    db->logResultMeanVar(rootDir);
+}
+
+//case_3: forward inferencetraining : 
+//trainCycle_3
+void testCase3(){
+
+}
+
 int main(){
-    testCase1();    
+    testCase2();      
 
 }
