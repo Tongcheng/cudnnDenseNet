@@ -1,9 +1,9 @@
 
-fileNameA = "Conv1_py.txt"
-fileNameB = "postConv_cpp"
+fileNameA = "BN1_py.txt"
+fileNameB = "postBN_cpp"
 A_offset = 0
-B_offset = 75
-rangeLen = 50
+B_offset = 0
+rangeLen = 75
 
 listA =  open(fileNameA,'r').readlines()[0].split(",")[:-1]
 listB =  open(fileNameB,'r').readlines()[0].split(',')[:-1]
