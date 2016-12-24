@@ -73,7 +73,7 @@ def pyBN_train_Fwd(inputData,n,c,h_img,w_img,inMeanVec,inVarVec,scalerVec,biasVe
             outputLocalFeatureMap = scalerVec[channelIdx]*tmp + biasVec[channelIdx]
             output[imgIdx][channelIdx] = outputLocalFeatureMap
 
-    return outputs, output_Mean, output_Var
+    return output, output_Mean, output_Var
 
 def writeTensor1DToFile(tensor,length,fileName):
     for i in range(length):
