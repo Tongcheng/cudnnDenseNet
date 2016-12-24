@@ -122,7 +122,7 @@ struct DenseBlock{
 	float* resultMean_cpu = GPU_transferPtr(bufferSize,this->ResultRunningMean_gpu);
 	float* resultVar_cpu = GPU_transferPtr(bufferSize,this->ResultRunningVariance_gpu);
 	writeTensor(resultMean_cpu,bufferSize,rootDir+"/Mean_cpp");
-	writeTensor(resultVar_cpu,bufferSize,rootDir+"Var_cpp");
+	writeTensor(resultVar_cpu,bufferSize,rootDir+"/Var_cpp");
     }
 };
 
