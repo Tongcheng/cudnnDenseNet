@@ -54,6 +54,8 @@ def pyBN_train_Fwd(inputData,n,c,h_img,w_img,inMeanVec,inVarVec,scalerVec,biasVe
     output_Mean = np.zeros(len(inMeanVec))
     output_Var = np.zeros(len(inVarVec))
     exponentialAverageFactor = 1.0/(1+trainCycleIdx)
+    local_MeanList = []
+    local_VarList = []
     for channelIdx in range(c):
         localChannelAll = []
         for imgIdx in range(n):
@@ -62,13 +64,15 @@ def pyBN_train_Fwd(inputData,n,c,h_img,w_img,inMeanVec,inVarVec,scalerVec,biasVe
         variance_adjust_m = n*h_img*w_img
         Mean_miniBatch = np.mean(localChannelAll)
         Var_miniBatch =  (variance_adjust_m / (variance_adjust_m - 1.0)) * np.var(localChannelAll)
+        local_MeanList.append(Mean_miniBatch)
+        local_VarList.append(Var_miniBatch)
         output_Mean[channelIdx] = (1-exponentialAverageFactor)*inMeanVec[channelIdx] + exponentialAverageFactor*Mean_miniBatch
         output_Var[channelIdx] = (1-exponentialAverageFactor)*inVarVec[channelIdx] + exponentialAverageFactor*Var_miniBatch
     
     for imgIdx in range(n):
         for channelIdx in range(c):
             inputLocalFeatureMap = inputData[imgIdx][channelIdx]
-	    tmp = (inputLocalFeatureMap - output_Mean[channelIdx]) / np.sqrt(output_Var[channelIdx] + epsilon)
+	    tmp = (inputLocalFeatureMap - local_MeanList[channelIdx]) / np.sqrt(local_VarList[channelIdx] + epsilon)
 	     
             outputLocalFeatureMap = scalerVec[channelIdx]*tmp + biasVec[channelIdx]
             output[imgIdx][channelIdx] = outputLocalFeatureMap

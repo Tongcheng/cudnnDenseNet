@@ -1,6 +1,6 @@
 
-fileNameA = "BN1_py.txt"
-fileNameB = "postBN_cpp"
+fileNameA = "InitTensor_py.txt"
+fileNameB = "postConv_cpp"
 A_offset = 0
 B_offset = 0
 rangeLen = 75
