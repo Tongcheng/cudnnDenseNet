@@ -222,10 +222,28 @@ void testCase2(){
 //case_3: forward inferencetraining : 
 //trainCycle_3
 void testCase3(){
-
+    int workspaceSize = 10000000;
+    string rootDir = "test_case_3";
+    vector<float> scalerVec = {1,2,3,4,5,6,7};
+    vector<float> biasVec = {3,2,1,0,-1,-2,-3};
+    vector<float> popMeanVec = {0,1,-1,0,0,0,0};
+    vector<float> popVarVec = {1,2,3,4,5,6,7};
+    float* scalerPtr_host = floatVec2floatPtr(scalerVec);
+    float* biasPtr_host = floatVec2floatPtr(biasVec);
+    float* popMeanPtr_host = floatVec2floatPtr(popMeanVec);
+    float* popVarPtr_host = floatVec2floatPtr(popVarVec);
+    vector<string> filterNames = {rootDir+"/Filter1_py.txt",rootDir+"/Filter2_py.txt"};
+    float** filter_cpu = generate_filter(filterNames,2);
+    float* initData_cpu = generate_data(rootDir+"/InitTensor_py.txt");
+    DenseBlock* db = new DenseBlock(3,2,2,2,5,5,0,scalerPtr_host,biasPtr_host,filter_cpu,workspaceSize,3);
+    db->inferenceMeanVarDeploy(popMeanPtr_host,popVarPtr_host);
+    db->denseBlockInputDeploy(initData_cpu);
+    db->cu_denseBlockForward();
+    db->logInternalState(rootDir);
+    db->logResultMeanVar(rootDir);
 }
 
 int main(){
-    testCase2();      
+    testCase3();      
 
 }
