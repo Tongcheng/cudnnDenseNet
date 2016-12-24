@@ -59,7 +59,8 @@ def pyBN_train_Fwd(inputData,n,c,h_img,w_img,inMeanVec,inVarVec,scalerVec,biasVe
         for imgIdx in range(n):
             localChannelAll.append(inputData[imgIdx][channelIdx])
         
-        variance_adjust_m = n*h_img*w_img
+        #variance_adjust_m = n*h_img*w_img
+        variance_adjust_m = n
         Mean_miniBatch = np.mean(localChannelAll)
         Var_miniBatch =  (variance_adjust_m / (variance_adjust_m - 1.0)) * np.var(localChannelAll)
         output_Mean[channelIdx] = (1-exponentialAverageFactor)*inMeanVec[channelIdx] + exponentialAverageFactor*Mean_miniBatch
