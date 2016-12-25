@@ -254,8 +254,6 @@ void DenseBlockForward(int initChannel,int growthRate,int numTransition,
             
 	//printf("transitionIdx %d\n",transitionIdx);
 	//printGPUBuffer(filter_transform[transitionIdx],growthRate*channelsBefore_self*3*3);
-	
-
     }
  
 }
@@ -277,7 +275,7 @@ void DenseBlockBackward(float* postConv_data,float* postBN_data,float* postReLU_
     
     for (int transitionIdx = numTransition-1;transitionIdx>=0;--transitionIdx){
         int channelsBefore_self = initChannel + transitionIdx * growthRate; 
-        int channelsBefore_noself = (transitionIdx>0?initChannel:0)+(transitionIdx-1)*growthRate;
+        int channelsBefore_noself = transitionIdx>0?(initChannel+(transitionIdx-1)*growthRate):0;
 	//Conv backward::Preparation
         cudnnFilterDescriptor_t* filterDesc = new cudnnFilterDescriptor_t;
         cudnnCreateFilterDescriptor(filterDesc);
