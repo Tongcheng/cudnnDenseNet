@@ -23,16 +23,7 @@ void DenseBlockForward(int initChannel,int growthRate,int numTransition,
 		  float* postConv_dataRegion, float* postBN_dataRegion, float* postReLU_dataRegion,
 		  float** filter_transform,int filter_H,int filter_W,float* workspace_gpu,int workspaceSize);
 
-void DenseBlockBackward(float* postConv_data,float* postBN_data,float* postReLU_data,
-  float* postConv_grad,float* postBN_grad,float* postReLU_grad,
-  float* BNscaler_grad, float* BNbias_grad, float** filter_grad,
-  float* BNscaler_data, float* BNbias_data, float** filter_data,
-  float* resultSaveMean, float* resultSaveInvVariance,
-  int numTransition,int N,int H,int W,int initChannel,int growthRate,
-  int pad_h,int pad_w,int conv_verticalStride,int conv_horizentalStride,
-  int filter_H,int filter_W,
-  float* workspace_gpu, int workspaceSize 
-)
+
 
 float* GPU_transferPtr(int bufferSize,float* gpuPtr);
 
