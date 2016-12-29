@@ -69,6 +69,17 @@ def pyReLU_batch_Fwd(inputData,n,c,h_img,w_img):
 	    outputData[n_i][i][j][k] = outLocal
     return outputData
 
+def pyReLU_batch_Fwd(inputData,n,c,h_img,w_img):
+    outputData = np.zeros((n,c,h_img,w_img))
+    for n_i in range(n):
+      for i in range(c):
+        for j in range(h_img):
+	  for k in range(w_img):
+	    localElement = inputData[n_i][i][j][k]
+	    outLocal = localElement if localElement > 0 else 0
+	    outputData[n_i][i][j][k] = outLocal
+    return outputData
+
 #bottomData: n*c*h_img*w_img
 #topGrad: n*c*h_img*w_img
 def pyReLU_batch_Bwd(bottomData,topGrad,n,c,h_img,w_img):
@@ -81,7 +92,6 @@ def pyReLU_batch_Bwd(bottomData,topGrad,n,c,h_img,w_img):
                     if bottomLocal > 0:
                         outputGrad[nIdx][cIdx][hIdx][wIdx] = topGrad[nIdx][cIdx][hIdx][wIdx]
     return outptuGrad
-
 
 def pyBN_train_Fwd(inputData,n,c,h_img,w_img,inMeanVec,inVarVec,scalerVec,biasVec,trainCycleIdx):
     epsilon = 1e-5
@@ -171,4 +181,101 @@ def pyBN_train_Bwd(bottomData,bottomXHatData,topGrad,n,c,h_img,w_img,batchMean,b
     return bottomDataGrad,scalerGrad,biasGrad 
 
     
+if __name__ == '__main__':
+    #N=2,C=3->2->2,H=W=5
+    N,H,W=2,5,5
+    InitC,growthRate=3,2
+    popMeanVec=[0,1,-1,0,0,0,0]
+    popVarVec =[1,2,3,4,5,6,7]
+    scalerVec =[1,2,3,4,5,6,7]
+    biasVec = [3,2,1,0,-1,-2,-3]
+    HConv,WConv = 3,3
     
+    InitMat = np.random.normal(0,2,(N,InitC,H,W)) #This is the matrix as input for the Convolution
+    """Fwd Phase"""
+    #Filter Transition one is 2*3*HConv*WConv
+    Filter1 = np.random.normal(0,1,(2,3,HConv,WConv))
+    Filter2 = np.random.normal(0,1,(2,5,HConv,WConv))
+    AllFilters = [Filter1,Filter2]
+    
+    #BatchNorm then ReLU
+    BN1_output,BN1_Xhat,BN1_outputMean,BN1_outputVar,BN1_batchMean,BN1_batchVar = pyBN_train_Fwd(InitMat,N,InitC,H,W,popMeanVec[:InitC],popVarVec[:InitC],scalerVec[:InitC],biasVec[:InitC],10000)
+    ReLU1_output = pyReLU_batch_Fwd(BN1_output,N,InitC,H,W)
+    Conv1_output = pyConvolution_batch_Fwd(2,2,3,H,W,HConv,WConv,ReLU1_output,Filter1)
+    
+    BN2_output,BN2_Xhat,BN2_outputMean,BN2_outputVar,BN2_batchMean,BN2_batchVar  = pyBN_train_Fwd(Conv1_output,N,growthRate,H,W,popMeanVec[InitC:InitC+growthRate],popVarVec[InitC:InitC+growthRate],scalerVec[InitC:InitC+growthRate],biasVec[InitC:InitC+growthRate],10000)
+    ReLU2_output = pyReLU_batch_Fwd(BN2_output,N,growthRate,H,W)
+    #Merge ReLU1_output and ReLU2_output as input for second convolution
+    Conv2_input = []
+    for n in range(N):
+        localN = []
+	#print ReLU1_output.shape
+        for c in range(InitC):
+	    localN.append(ReLU1_output[n][c])
+        for c in range(growthRate):
+            localN.append(ReLU2_output[n][c])
+        Conv2_input.append(localN)
+    
+    Conv2_output = pyConvolution_batch_Fwd(2,2,5,H,W,HConv,WConv,Conv2_input,Filter2)
+    
+    """Bwd phase"""
+    TopGrad = np.random.normal(0,1,(N,growthRate,H,W))
+    #Conv2 Bwd: Region2 -> Region1, Region0
+    Conv2_bottomGrad,Conv2_filterGrad = pyConv_batch_Bwd(N,growthRate,InitC+growthRate,H,W,HConv,WConv,Conv2_input,TopGrad,Filter2)
+    
+    #ReLU2 Bwd: Region1
+    Conv2_bottomGrad_region0 = Conv2_bottomGrad[n,:InitC,H,W]
+    Conv2_bottomGrad_region1 = Conv2_bottomGrad[n,InitC:InitC+growthRate,H,W]
+    ReLU2_bottomGrad = pyReLU_train_Bwd(BN2_output,Conv2_bottomGrad_region1,N,growthRate,H,W)
+
+    #BN2 Bwd: Region1
+    BN2_bottomGrad,BN2_scalerGrad,BN2_biasGrad = pyBN_train_Bwd(Conv1_output,BN2_Xhat,ReLU2_bottomGrad,N,growthRate,H,W,BN2_batchMean,BN2_batchVar,scalerVec[InitC:InitC+growthRate],biasVec[InitC:InitC+growthRate])
+
+    #Conv1 Bwd: Region1 -> Region0
+    Conv1_bottomGrad,Conv1_filterGrad = pyConv_batch_Bwd(N,growthRate,InitC,H,W,HConv,WConv,ReLU1_output,BN2_bottomGrad,Filter1)
+    
+    #ReLU1 Bwd: Region0
+    Region0_MergedGrad = Conv2_botomGrad_region0 + Conv1_bottomGrad
+    ReLU1_bottomGrad = pyReLU_train_Bwd(BN1_output,Region0_MergedGrad,N,InitC,H,W)
+
+    #BN1 Bwd: Region0
+    BN1_bottomGrad,BN1_scalerGrad,BN1_biasGrad = pyBN_train_Bwd(InitMat,BN1_Xhat,ReLU1_bottomGrad,N,InitC,H,W,BN1_batchMean,BN1_batchVar,scalerVec[:InitC],biasVec[:InitC])
+
+    """Log Variables in Fwd Phase"""
+    writeTensor4DToFile(Filter1,2,3,HConv,WConv,"Filter1_py.txt")
+    writeTensor4DToFile(Filter2,2,5,HConv,WConv,"Filter2_py.txt")
+    writeTensor4DToFile(InitMat,N,InitC,H,W,'InitTensor_py.txt')
+    writeTensor4DToFile(BN1_output,N,InitC,H,W,'BN1_py.txt')
+    writeTensor4DToFile(BN1_Xhat,N,InitC,H,W,'BN1_Xhat_py.txt')
+    writeTensor1DToFile(BN1_outputMean,InitC,'BN1_outputMean_py.txt')
+    writeTensor1DToFile(BN1_outputVar,InitC,'BN1_outputVar_py.txt')
+    writeTensor1DToFile(BN1_batchMean,InitC,'BN1_batchMean_py.txt')
+    writeTensor1DToFile(BN1_batchVar,InitC,'BN1_batchVar_py.txt')
+    writeTensor4DToFile(ReLU1_output,N,InitC,H,W,'ReLU1_py.txt')
+    writeTensor4DToFile(Conv1_output,N,growthRate,H,W,'Conv1_py.txt')
+    writeTensor4DToFile(BN2_output,N,growthRate,H,W,'BN2_py.txt')
+    writeTensor4DToFile(BN2_Xhat,N,growthRate,H,W,'BN2_Xhat_py.txt')
+    writeTensor1DToFile(BN2_outputMean,growthRate,'BN2_outputMean_py.txt')
+    writeTensor1DToFile(BN2_outputVar,growthRate,'BN2_outputVar_py.txt')
+    writeTensor1DToFile(BN2_batchMean,growthRate,'BN2_batchMean_py.txt')
+    writeTensor1DToFile(BN2_batchVar,growthRate,'BN2_batchVar_py.txt')
+    writeTensor4DToFile(ReLU2_output,N,growthRate,H,W,'ReLU2_py.txt')
+    writeTensor4DToFile(Conv2_input,N,InitC+growthRate,H,W,'Conv2pre_py.txt')
+    writeTensor4DToFile(Conv2_output,N,growthRate,H,W,'Conv2_py.txt')
+
+    """Log Variables in Bwd Phase"""
+    writeTensor4DToFile(TopGrad,N,growthRate,H,W,'TopGrad_py.txt')
+    writeTensor4DToFile(Conv2_bottomGrad_region1,N,growthRate,H,W,'Conv2_bottomGrad_region1_py.txt')
+    writeTensor4DToFile(Conv2_filterGrad,growthRate,InitC+growthRate,HConv,WConv,'Filter2Grad_py.txt')
+    writeTensor4DToFile(ReLU2_bottomGrad,N,growthRate,H,W,'ReLU2_bottomGrad_py.txt')
+    writeTensor4DToFile(BN2_bottomGrad,N,growthRate,H,W,'BN2_bottomGrad_py.txt')
+    writeTensor1DToFile(BN2_scalerGrad,growthRate,'BN2_scalergrad_py.txt')
+    writeTensor1DToFile(BN2_biasgrad,growthRate,'BN2_biasGrad_py.txt')
+    writeTensor4DToFile(Conv1_bottomGrad_region0,N,InitC,H,W,'Conv1_bottomGrad_region0_py.txt')
+    writeTensor4DToFile(Region0_MergedGrad,N,InitC,H,W,'Region0_MergedGrad_py.txt')
+    writeTensor4DToFile(Conv1_filterGrad,growthRate,InitC,HConv,WConv,'Filter1Grad_py.txt')
+    writeTensor4DToFile(ReLU1_bottomGrad,N,InitC,H,W,'ReLU1_bottomGrad_py.txt')
+    writeTensor4DToFile(BN1_bottomGrad,N,InitC,H,W,'BN1_bottomGrad_py.txt')
+    writeTensor1DToFile(BN1_scalerGrad,InitC,'BN1_scalerGrad_py.txt')
+    writeTensor1DToFile(BN1_biasGrad,InitC,'BN1_biasGrad_py.txt')
+
