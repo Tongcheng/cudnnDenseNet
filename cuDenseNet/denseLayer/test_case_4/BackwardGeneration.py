@@ -167,7 +167,7 @@ def pyBN_train_Bwd(bottomData,bottomXHatData,topGrad,n,c,h_img,w_img,batchMean,b
         for nIdx in range(n):
             for hIdx in range(h_img):
                 for wIdx in range(w_img):
-                    meanGrad[channelIdx] += bottomDataGrad[nIdx][channelIdx][hIdx][wIdx] * (-1.0 / np.sqrt(batchVar[channelIdx] + epsilon))
+                    meanGrad[channelIdx] += XHatGrad[nIdx][channelIdx][hIdx][wIdx] * (-1.0 / np.sqrt(batchVar[channelIdx] + epsilon)) + varGrad[channelIdx] * (-2.0 * (bottomData[nIdx][channelIdx][hIdx][wIdx] - batchMean[channelIdx])) / m
 
     m = float(n * h_img * w_img)
     #Now main for calculate bottomDataGrad
@@ -176,7 +176,7 @@ def pyBN_train_Bwd(bottomData,bottomXHatData,topGrad,n,c,h_img,w_img,batchMean,b
             for hIdx in range(h_img):
                 for wIdx in range(w_img):
                     term1 = XHatGrad[nIdx][cIdx][hIdx][wIdx]*np.power(batchVar[cIdx]+epsilon,-0.5)
-                    term2 = varGrad[cIdx] * 2 * (bottomData[nIdx][cIdx][hIdx][wIdx] - batchMean[cIdx]) / m
+                    term2 = varGrad[cIdx] * 2.0 * (bottomData[nIdx][cIdx][hIdx][wIdx] - batchMean[cIdx]) / m
                     term3 = meanGrad[cIdx] / m
                     bottomDataGrad[nIdx][cIdx][hIdx][wIdx] += term1 + term2 + term3
     
