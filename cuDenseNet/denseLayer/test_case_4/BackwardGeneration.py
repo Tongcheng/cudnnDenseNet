@@ -91,7 +91,7 @@ def pyReLU_batch_Bwd(bottomData,topGrad,n,c,h_img,w_img):
                     bottomLocal = bottomData[nIdx][cIdx][hIdx][wIdx]
                     if bottomLocal > 0:
                         outputGrad[nIdx][cIdx][hIdx][wIdx] = topGrad[nIdx][cIdx][hIdx][wIdx]
-    return outptuGrad
+    return outputGrad
 
 def pyBN_train_Fwd(inputData,n,c,h_img,w_img,inMeanVec,inVarVec,scalerVec,biasVec,trainCycleIdx):
     epsilon = 1e-5
@@ -115,13 +115,14 @@ def pyBN_train_Fwd(inputData,n,c,h_img,w_img,inMeanVec,inVarVec,scalerVec,biasVe
         local_VarList.append(Var_miniBatch)
         output_Mean[channelIdx] = (1-exponentialAverageFactor)*inMeanVec[channelIdx] + exponentialAverageFactor*Mean_miniBatch
         output_Var[channelIdx] = (1-exponentialAverageFactor)*inVarVec[channelIdx] + exponentialAverageFactor*Var_miniBatch
-    
+   
+    output_xhat = np.zeros((n,c,h_img,w_img)) 
     for imgIdx in range(n):
         for channelIdx in range(c):
             inputLocalFeatureMap = inputData[imgIdx][channelIdx]
 	    tmp = (inputLocalFeatureMap - local_MeanList[channelIdx]) / np.sqrt(local_VarList[channelIdx] + epsilon)
 
-	    output_xhat = tmp
+	    output_xhat[imgIdx][channelIdx] = tmp
             outputLocalFeatureMap = scalerVec[channelIdx]*tmp + biasVec[channelIdx]
             output[imgIdx][channelIdx] = outputLocalFeatureMap
 
@@ -139,7 +140,8 @@ def pyBN_train_Bwd(bottomData,bottomXHatData,topGrad,n,c,h_img,w_img,batchMean,b
             for hIdx in range(h_img):
                 for wIdx in range(w_img):
                     biasGrad[channelIdx] += topGrad[nIdx][channelIdx][hIdx][wIdx]
-                    scalerGrad[channelIdx] += topGrad[nIdx][channelIdx][hIdx][wIdx] * bottomXHatData[nIdx][channelIdx][hIdx][wIdx]
+                    #print bottomXHatData
+		    scalerGrad[channelIdx] += topGrad[nIdx][channelIdx][hIdx][wIdx] * bottomXHatData[nIdx][channelIdx][hIdx][wIdx]
 
     #compute bottomDataGrad
     bottomDataGrad = np.zeros((n,c,h_img,w_img))
@@ -147,40 +149,56 @@ def pyBN_train_Bwd(bottomData,bottomXHatData,topGrad,n,c,h_img,w_img,batchMean,b
     XHatGrad = np.zeros((n,c,h_img,w_img))
     for nIdx in range(n):
         for cIdx in range(c):
-            for hIdx in range(h):
-                for wIdx in range(w):
+            for hIdx in range(h_img):
+                for wIdx in range(w_img):
                     XHatGrad[nIdx][cIdx][hIdx][wIdx] = topGrad[nIdx][cIdx][hIdx][wIdx] * scalerVec[cIdx]
 
     #Helper 2: Var Gradient
     varGrad = np.zeros(c)
     for channelIdx in range(c):
         for nIdx in range(n):
-            for hIdx in range(h):
-                for wIdx in range(w):
+            for hIdx in range(h_img):
+                for wIdx in range(w_img):
                     varGrad[channelIdx] += XHatGrad[nIdx][channelIdx][hIdx][wIdx]*(bottomData[nIdx][channelIdx][hIdx][wIdx]-batchMean[channelIdx])*(-0.5)*np.power(batchVar[channelIdx]+epsilon,-1.5)
     
     #Helper 3: Mean Gradient
     meanGrad = np.zeros(c)
     for channelIdx in range(c):
         for nIdx in range(n):
-            for hIdx in range(h):
-                for wIdx in range(w):
+            for hIdx in range(h_img):
+                for wIdx in range(w_img):
                     meanGrad[channelIdx] += bottomDataGrad[nIdx][channelIdx][hIdx][wIdx] * (-1.0 / np.sqrt(batchVar[channelIdx] + epsilon))
 
     m = float(n * h_img * w_img)
     #Now main for calculate bottomDataGrad
     for nIdx in range(n):
         for cIdx in range(c):
-            for hIdx in range(h):
-                for wIdx in range(w):
-                    term1 = XHatGrad[nIdx][cIdx][hId][wIdx]*np.power(batchVar[cIdx]+epsilon,-0.5)
+            for hIdx in range(h_img):
+                for wIdx in range(w_img):
+                    term1 = XHatGrad[nIdx][cIdx][hIdx][wIdx]*np.power(batchVar[cIdx]+epsilon,-0.5)
                     term2 = varGrad[cIdx] * 2 * (bottomData[nIdx][cIdx][hIdx][wIdx] - batchMean[cIdx]) / m
                     term3 = meanGrad[cIdx] / m
                     bottomDataGrad[nIdx][cIdx][hIdx][wIdx] += term1 + term2 + term3
     
     return bottomDataGrad,scalerGrad,biasGrad 
 
-    
+def writeTensor1DToFile(tensor,length,fileName):
+    for i in range(length):
+        with open(fileName,'a') as wFile:
+            wFile.write(`tensor[i]`+",")
+
+def writeTensor2DToFile(tensor,len1,len2,fileName):
+    for i in range(len1):
+        writeTensor1DToFile(tensor[i],len2,fileName)
+
+def writeTensor3DToFile(tensor,len1,len2,len3,fileName):
+    for i in range(len1):
+        writeTensor2DToFile(tensor[i],len2,len3,fileName)
+
+def writeTensor4DToFile(tensor,len1,len2,len3,len4,fileName):
+    for i in range(len1):
+        writeTensor3DToFile(tensor[i],len2,len3,len4,fileName)
+ 
 if __name__ == '__main__':
     #N=2,C=3->2->2,H=W=5
     N,H,W=2,5,5
@@ -224,9 +242,11 @@ if __name__ == '__main__':
     Conv2_bottomGrad,Conv2_filterGrad = pyConv_batch_Bwd(N,growthRate,InitC+growthRate,H,W,HConv,WConv,Conv2_input,TopGrad,Filter2)
     
     #ReLU2 Bwd: Region1
-    Conv2_bottomGrad_region0 = Conv2_bottomGrad[n,:InitC,H,W]
-    Conv2_bottomGrad_region1 = Conv2_bottomGrad[n,InitC:InitC+growthRate,H,W]
-    ReLU2_bottomGrad = pyReLU_train_Bwd(BN2_output,Conv2_bottomGrad_region1,N,growthRate,H,W)
+    Conv2_bottomGrad_region0 = Conv2_bottomGrad[:,:InitC,:,:]
+    Conv2_bottomGrad_region1 = Conv2_bottomGrad[:,InitC:InitC+growthRate,:,:]
+    #print Conv2_bottomGrad_region0.shape
+    #print Conv2_bottomGrad_region1.shape
+    ReLU2_bottomGrad = pyReLU_batch_Bwd(BN2_output,Conv2_bottomGrad_region1,N,growthRate,H,W)
 
     #BN2 Bwd: Region1
     BN2_bottomGrad,BN2_scalerGrad,BN2_biasGrad = pyBN_train_Bwd(Conv1_output,BN2_Xhat,ReLU2_bottomGrad,N,growthRate,H,W,BN2_batchMean,BN2_batchVar,scalerVec[InitC:InitC+growthRate],biasVec[InitC:InitC+growthRate])
@@ -235,8 +255,8 @@ if __name__ == '__main__':
     Conv1_bottomGrad,Conv1_filterGrad = pyConv_batch_Bwd(N,growthRate,InitC,H,W,HConv,WConv,ReLU1_output,BN2_bottomGrad,Filter1)
     
     #ReLU1 Bwd: Region0
-    Region0_MergedGrad = Conv2_botomGrad_region0 + Conv1_bottomGrad
-    ReLU1_bottomGrad = pyReLU_train_Bwd(BN1_output,Region0_MergedGrad,N,InitC,H,W)
+    Region0_MergedGrad = Conv2_bottomGrad_region0 + Conv1_bottomGrad
+    ReLU1_bottomGrad = pyReLU_batch_Bwd(BN1_output,Region0_MergedGrad,N,InitC,H,W)
 
     #BN1 Bwd: Region0
     BN1_bottomGrad,BN1_scalerGrad,BN1_biasGrad = pyBN_train_Bwd(InitMat,BN1_Xhat,ReLU1_bottomGrad,N,InitC,H,W,BN1_batchMean,BN1_batchVar,scalerVec[:InitC],biasVec[:InitC])
@@ -270,8 +290,8 @@ if __name__ == '__main__':
     writeTensor4DToFile(ReLU2_bottomGrad,N,growthRate,H,W,'ReLU2_bottomGrad_py.txt')
     writeTensor4DToFile(BN2_bottomGrad,N,growthRate,H,W,'BN2_bottomGrad_py.txt')
     writeTensor1DToFile(BN2_scalerGrad,growthRate,'BN2_scalergrad_py.txt')
-    writeTensor1DToFile(BN2_biasgrad,growthRate,'BN2_biasGrad_py.txt')
-    writeTensor4DToFile(Conv1_bottomGrad_region0,N,InitC,H,W,'Conv1_bottomGrad_region0_py.txt')
+    writeTensor1DToFile(BN2_biasGrad,growthRate,'BN2_biasGrad_py.txt')
+    writeTensor4DToFile(Conv2_bottomGrad_region0,N,InitC,H,W,'Conv2_bottomGrad_region0_py.txt')
     writeTensor4DToFile(Region0_MergedGrad,N,InitC,H,W,'Region0_MergedGrad_py.txt')
     writeTensor4DToFile(Conv1_filterGrad,growthRate,InitC,HConv,WConv,'Filter1Grad_py.txt')
     writeTensor4DToFile(ReLU1_bottomGrad,N,InitC,H,W,'ReLU1_bottomGrad_py.txt')
