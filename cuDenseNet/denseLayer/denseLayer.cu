@@ -53,6 +53,7 @@ float** GPU_getBufferState(int bufferSize,float* postConv_gpuPtr,float* postBN_g
     cudaMemcpy(postConv_host,postConv_gpuPtr,bufferSize * sizeof(float),cudaMemcpyDeviceToHost);
     cudaMemcpy(postBN_host,postBN_gpuPtr,bufferSize * sizeof(float),cudaMemcpyDeviceToHost);
     cudaMemcpy(postReLU_host,postReLU_gpuPtr,bufferSize * sizeof(float),cudaMemcpyDeviceToHost);
+    
     return output;
 }
 

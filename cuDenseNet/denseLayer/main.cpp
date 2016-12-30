@@ -152,6 +152,30 @@ struct DenseBlock{
 	writeTensor(bufferState_postReLU_host,bufferSize,rootDir+"/postReLU_cpp");
     }
 
+    void logGradients(string rootDir){
+        int bufferSize = this->N * (this->initChannel + this->growthRate * this->numTransition) * this->H * this->W; //the number of values within buffer
+        float* postConvGrad_host = GPU_transferPtr(bufferSize,this->postConv_grad_gpu);
+	float* postBNGrad_host = GPU_transferPtr(bufferSize,this->postBN_grad_gpu);
+	float* postReLUGrad_host = GPU_transferPtr(bufferSize,this->postReLU_grad_gpu);
+	writeTensor(postConvGrad_host,rootDir+"/ConvGrad_cpp");
+	writeTensor(postBNGrad_host,rootDir+"/BNGrad_cpp");
+	writeTensor(postReLUGrad_host,rootDir+"/ReLUGrad_cpp");
+
+	int numChannelTotal = this->initChannel+this->growthRate*this->numTransition;
+	float* BNscalerGrad_host = GPU_transferPtr(numChannelTotal,this->BNscaler_grad_gpu);
+	float* BNbiasGrad_host = GPU_transferPtr(numChannelTotal,this->BNbias_grad_gpu);
+	writeTensor(BNscalerGrad_host,rootDir+"/BNscalerGrad_cpp");
+	writeTensor(BNbiasGrad_host,rootDir+"/BNbiasGrad_cpp");
+
+        //log filter grad
+        for (int localTransitionIdx=0;localTransitionIdx < this->numTransition;++localTransitionIdx){
+	    string filterName = "filterGrad"+to_string(localTransitionIdx)+"_cpp";
+	    int localFilterNumValues = this->growthRate*(this->initChannel+localTransitionIdx*this->growthRate)*this->filter_H*this->filter_W;
+	    float* filter_localTransition_host = GPU_transferPtr(localFilterNumValues,this->filter_grad_gpu[localTransitionIdx]);
+	    writeTensor(filter_localTransition_host,rootDir+"/"+filterName);
+	}
+    }
+
     void logResultMeanVar(string rootDir){
         int bufferSize = this->initChannel + this->growthRate * this->numTransition;
 	float* resultMean_cpu = GPU_transferPtr(bufferSize,this->ResultRunningMean_gpu);
@@ -278,7 +302,32 @@ void testCase3(){
     db->logResultMeanVar(rootDir);
 }
 
-int main(){
-    testCase3();      
+//case_4: Backward Training:
+void testCase4(){
+    int workspaceSize = 10000000;
+    string rootDir = "test_case_4";
+    vector<float> scalerVec = {1,2,3,4,5,6,7};
+    vector<float> biasVec = {3,2,1,0,-1,-2,-3};
+    vector<float> popMeanVec = {0,1,-1,0,0,0,0};
+    vector<float> popVarVec = {1,2,3,4,5,6,7};
+    float* scalerPtr_host = floatVec2floatPtr(scalerVec);
+    float* biasPtr_host = floatVec2floatPtr(biasVec);
+    float* popMeanPtr_host = floatVec2floatPtr(popMeanVec);
+    float* popVarPtr_host = floatVec2floatPtr(popVarVec);
+    vector<string> filterNames = {rootDir+"/Filter1_py.txt",rootDir+"/Filter2_py.txt"};
+    float** filter_cpu = generate_filter(filterNames,2);
+    float* initData_cpu = generate_data(rootDir+"/InitTensor_py.txt");
+    float* topGrad_cpu = generate_data(rootDir+"/TopGrad_py.txt");
+    DenseBlock* db = new DenseBlock(3,2,2,2,5,5,0,scalerPtr_host,biasPtr_host,filter_cpu,workspaceSize);
+    db->inferenceMeanVarDeploy(popMeanPtr_host,popVarPtr_host);
+    db->denseBlockInputDeploy(initData_cpu);
+    db->cu_denseBlockForward();
+    db->logInternalState(rootDir);
+    db->denseBlockGradientDeploy(topGrad_cpu);
+    db->cu_denseBlockBackward();
+    db->logGradients(rootDir);
+}
 
+int main(){
+    testCase4(); 
 }
