@@ -178,7 +178,7 @@ void GPU_topGradDeploy(float* topGrad_host,float* postConv_grad_gpu,int N,int nu
     for (int imgIdx=0;imgIdx < N;++imgIdx){
         int copySize_byte = growthRate*H*W*sizeof(float);
 	float* localPtr_host = topGrad_host + imgIdx*imgGap_host;
-	float* localPtr_device = topGrad_host + startGap_device + imgIdx*imgGap_device;
+	float* localPtr_device = postConv_grad_gpu + startGap_device + imgIdx*imgGap_device;
 	cudaMemcpy(localPtr_device,localPtr_host,copySize_byte,cudaMemcpyHostToDevice);
     }
 }
