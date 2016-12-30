@@ -32,7 +32,7 @@ void DenseBlockBackward(float* postConv_data,float* postBN_data,float* postReLU_
   int pad_h,int pad_w,int conv_verticalStride,int conv_horizentalStride,
   int filter_H,int filter_W,
   float* workspace_gpu, int workspaceSize 
-)
+);
 
 float* GPU_transferPtr(int bufferSize,float* gpuPtr);
 
@@ -91,7 +91,7 @@ struct DenseBlock{
 
     void GPU_Init(float* BNScalerVec_host,float* BNBiasVec_host,float** filter_host_in,int numTransform,int initChannel,int growthRate,int N,int H,int W,int filter_H,int filter_W,int workspaceSize){
         //this->filter_gpu = GPU_filterDeploy(filter_host_in,numTransform,initChannel,growthRate,N,filter_H,filter_W);
-        filter_totalPtr = GPU_filterDeploy(filter_host_in,numTransform,initChannel,growthRate,N,filter_H,filter_W);
+        float*** filter_totalPtr = GPU_filterDeploy(filter_host_in,numTransform,initChannel,growthRate,N,filter_H,filter_W);
 	this->filter_gpu = filter_totalPtr[0];
 	this->filter_grad_gpu = filter_totalPtr[1];
 	float** misc_MetaPtr = GPU_miscDeploy(BNScalerVec_host,BNBiasVec_host,numTransform,initChannel,growthRate,N,H,W,workspaceSize);
@@ -120,8 +120,8 @@ struct DenseBlock{
         GPU_inputDeploy(initData_host,this->postConv_dataRegion_gpu,this->N,this->numTransition,this->initChannel,this->growthRate,this->H,this->W);        	
     }
 
-    void denseBlockGradientDeploy(float* TopGrad){
-        GPU_topGradDeploy(topGrad_host,this->postConv_grad_gpu,this->N,this->numTransition,this->initChannel,this->growthRate,this->H,this->W);
+    void denseBlockGradientDeploy(float* TopGrad_host){
+        GPU_topGradDeploy(TopGrad_host,this->postConv_grad_gpu,this->N,this->numTransition,this->initChannel,this->growthRate,this->H,this->W);
     }
 
     void cu_denseBlockForward(){
@@ -157,22 +157,22 @@ struct DenseBlock{
         float* postConvGrad_host = GPU_transferPtr(bufferSize,this->postConv_grad_gpu);
 	float* postBNGrad_host = GPU_transferPtr(bufferSize,this->postBN_grad_gpu);
 	float* postReLUGrad_host = GPU_transferPtr(bufferSize,this->postReLU_grad_gpu);
-	writeTensor(postConvGrad_host,rootDir+"/ConvGrad_cpp");
-	writeTensor(postBNGrad_host,rootDir+"/BNGrad_cpp");
-	writeTensor(postReLUGrad_host,rootDir+"/ReLUGrad_cpp");
+	writeTensor(postConvGrad_host,bufferSize,rootDir+"/ConvGrad_cpp");
+	writeTensor(postBNGrad_host,bufferSize,rootDir+"/BNGrad_cpp");
+	writeTensor(postReLUGrad_host,bufferSize,rootDir+"/ReLUGrad_cpp");
 
 	int numChannelTotal = this->initChannel+this->growthRate*this->numTransition;
 	float* BNscalerGrad_host = GPU_transferPtr(numChannelTotal,this->BNscaler_grad_gpu);
 	float* BNbiasGrad_host = GPU_transferPtr(numChannelTotal,this->BNbias_grad_gpu);
-	writeTensor(BNscalerGrad_host,rootDir+"/BNscalerGrad_cpp");
-	writeTensor(BNbiasGrad_host,rootDir+"/BNbiasGrad_cpp");
+	writeTensor(BNscalerGrad_host,numChannelTotal,rootDir+"/BNscalerGrad_cpp");
+	writeTensor(BNbiasGrad_host,numChannelTotal,rootDir+"/BNbiasGrad_cpp");
 
         //log filter grad
         for (int localTransitionIdx=0;localTransitionIdx < this->numTransition;++localTransitionIdx){
 	    string filterName = "filterGrad"+to_string(localTransitionIdx)+"_cpp";
 	    int localFilterNumValues = this->growthRate*(this->initChannel+localTransitionIdx*this->growthRate)*this->filter_H*this->filter_W;
 	    float* filter_localTransition_host = GPU_transferPtr(localFilterNumValues,this->filter_grad_gpu[localTransitionIdx]);
-	    writeTensor(filter_localTransition_host,rootDir+"/"+filterName);
+	    writeTensor(filter_localTransition_host,localFilterNumValues,rootDir+"/"+filterName);
 	}
     }
 
