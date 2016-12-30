@@ -217,11 +217,11 @@ if __name__ == '__main__':
     AllFilters = [Filter1,Filter2]
     
     #BatchNorm then ReLU
-    BN1_output,BN1_Xhat,BN1_outputMean,BN1_outputVar,BN1_batchMean,BN1_batchVar = pyBN_train_Fwd(InitMat,N,InitC,H,W,popMeanVec[:InitC],popVarVec[:InitC],scalerVec[:InitC],biasVec[:InitC],10000)
+    BN1_output,BN1_Xhat,BN1_outputMean,BN1_outputVar,BN1_batchMean,BN1_batchVar = pyBN_train_Fwd(InitMat,N,InitC,H,W,popMeanVec[:InitC],popVarVec[:InitC],scalerVec[:InitC],biasVec[:InitC],0)
     ReLU1_output = pyReLU_batch_Fwd(BN1_output,N,InitC,H,W)
     Conv1_output = pyConvolution_batch_Fwd(2,2,3,H,W,HConv,WConv,ReLU1_output,Filter1)
     
-    BN2_output,BN2_Xhat,BN2_outputMean,BN2_outputVar,BN2_batchMean,BN2_batchVar  = pyBN_train_Fwd(Conv1_output,N,growthRate,H,W,popMeanVec[InitC:InitC+growthRate],popVarVec[InitC:InitC+growthRate],scalerVec[InitC:InitC+growthRate],biasVec[InitC:InitC+growthRate],10000)
+    BN2_output,BN2_Xhat,BN2_outputMean,BN2_outputVar,BN2_batchMean,BN2_batchVar  = pyBN_train_Fwd(Conv1_output,N,growthRate,H,W,popMeanVec[InitC:InitC+growthRate],popVarVec[InitC:InitC+growthRate],scalerVec[InitC:InitC+growthRate],biasVec[InitC:InitC+growthRate],0)
     ReLU2_output = pyReLU_batch_Fwd(BN2_output,N,growthRate,H,W)
     #Merge ReLU1_output and ReLU2_output as input for second convolution
     Conv2_input = []
