@@ -1,9 +1,9 @@
 
-fileNameA = "Filter1Grad_py.txt"
-fileNameB = "filterGrad0_cpp"
+fileNameA = "BN2_bottomGrad_py.txt"
+fileNameB = "ConvGrad_cpp"
 A_offset = 0
-B_offset = 0
-rangeLen = 54
+B_offset = 75
+rangeLen = 50
 
 listA =  open(fileNameA,'r').readlines()[0].split(",")[:-1]
 listB =  open(fileNameB,'r').readlines()[0].split(',')[:-1]
@@ -14,7 +14,7 @@ print floatAL[A_offset:A_offset+rangeLen]
 print floatBL[B_offset:B_offset+rangeLen]
 for i in range(rangeLen):
     numA,numB = floatAL[A_offset+i],floatBL[B_offset+i]
-    print abs(numA-numB)
+    print numA-numB
     
 
 globalMaxDiff = 0 
